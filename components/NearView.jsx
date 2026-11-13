@@ -12,7 +12,9 @@ import { foodPin } from '@/lib/pins';
 import NotConfigured from './NotConfigured';
 import { useToast } from './Toast';
 
-// デモ用のサンプル店舗（URLに ?demo を付けたときだけ表示。実在のお店ではない）
+// βテスト用のサンプル店舗（実在のお店ではない）。
+// 正式リリースのときは、Vercelの環境変数 NEXT_PUBLIC_SHOW_SAMPLES を false にするか、下の true を false に変える
+const SHOW_SAMPLES = process.env.NEXT_PUBLIC_SHOW_SAMPLES !== 'false' && true;
 const SAMPLES = [
   { name: 'スパイスカレー ソラ', genre: 'curry' },
   { name: 'クレープ ミルル', genre: 'sweets' },
@@ -22,10 +24,10 @@ const SAMPLES = [
 function makeSamples(base) {
   const pool = [...SAMPLES].sort(() => Math.random() - 0.5).slice(0, 3);
   return pool.map((t, i) => {
-    const d = 120 + Math.random() * 300, a = Math.random() * 2 * Math.PI;
+    const d = 150 + Math.random() * 250, a = (i * 2 * Math.PI) / 3 + Math.random() * 1.2; // 重ならないよう方向を散らす
     const lat = base.lat + (d * Math.cos(a)) / 111320;
     const lng = base.lng + (d * Math.sin(a)) / (111320 * Math.cos((base.lat * Math.PI) / 180));
-    return { id: `demo-${i}`, demo: true, lat, lng, stores: { name: `${t.name}（サンプル）`, genre: t.genre, slug: null, photo_url: null } };
+    return { id: `demo-${i}`, demo: true, lat, lng, stores: { name: t.name, genre: t.genre, slug: null, photo_url: null, sample: true } };
   });
 }
 
@@ -56,11 +58,11 @@ export default function NearView() {
     return stop;
   }, [load]);
 
-  useEffect(() => { setDemo(new URLSearchParams(window.location.search).has('demo')); }, []);
+  useEffect(() => { setDemo(SHOW_SAMPLES || new URLSearchParams(window.location.search).has('demo')); }, []);
 
   const base = me || TOKYO;
   const samples = useMemo(() => (demo && geo !== 'busy' ? makeSamples(base) : []), [demo, geo, base.lat, base.lng]); // eslint-disable-line react-hooks/exhaustive-deps
-  const open = (s) => (s.demo ? toast('サンプル表示です。実在のお店ではありません') : router.push(`/s/${s.stores.slug}`));
+  const open = (s) => (s.demo ? toast('サンプルのお店です。実在のお店ではありません') : router.push(`/s/${s.stores.slug}`));
   const list = useMemo(() => [...(sessions || []), ...samples]
     .map((s) => ({ ...s, d: distanceM(base, s) }))
     .filter((s) => s.d <= radius && (g === 'all' || s.stores.genre === g))
@@ -81,8 +83,8 @@ export default function NearView() {
         </div>
         <div className="sub">
           {geo === 'ng' ? '現在地がわからないため、東京駅のまわりを表示しています。' : `現在地から半径${radius >= 1000 ? radius / 1000 + 'km' : radius + 'm'}・いま出店中のお店`}
-          {demo && '（サンプル店舗を表示中）'}
         </div>
+        {demo && <div className="sub" style={{ background: 'var(--ground)', border: '1px dashed var(--ink-3)', borderRadius: 8, padding: '6px 10px', color: 'var(--ink-2)' }}>βテスト中のため、<b>サンプルのお店</b>も表示しています（実在のお店ではありません）</div>}
         <div className="chips" role="group" aria-label="ジャンルで絞り込む">
           <button className="chip" aria-pressed={g === 'all'} onClick={() => setG('all')}>すべて</button>
           {Object.entries(GENRES).map(([k, v]) => (
@@ -105,7 +107,7 @@ export default function NearView() {
           {list.map((s) => (
             <Link className="li" key={s.id} href={s.demo ? '#' : `/s/${s.stores.slug}`} onClick={(e) => { if (s.demo) { e.preventDefault(); open(s); } }}>
               <i style={{ background: genre(s.stores.genre).color }} />
-              <span className="n">{s.stores.name}<small>{genre(s.stores.genre).short}</small></span>
+              <span className="n">{s.stores.name}{s.demo && <span style={{ marginLeft: 6, fontSize: 10.5, color: 'var(--ink-2)', border: '1px dashed var(--ink-3)', borderRadius: 6, padding: '0 6px', verticalAlign: 'middle' }}>サンプル</span>}<small>{genre(s.stores.genre).short}</small></span>
               <span className="d num">{distText(s.d)}</span>
             </Link>
           ))}
